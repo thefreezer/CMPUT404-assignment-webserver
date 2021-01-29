@@ -31,8 +31,40 @@ class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
         self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        self.request.sendall(bytearray("OK",'utf-8'))
+        #print ("Got a request of: %s\n" % self.data)
+
+        req = self.data.decode("utf-8") # turns request into easily readable format
+        method, url = req.split()[0], req.split()[1]
+        #print(method, url)
+
+        if method != "GET":
+            self.request.sendall("HTTP/1.1 405 Method Not Allowed\r\n\r\n".encode())
+            return
+        else:
+            if url.endswith(".html"):
+                mime_type = "text/html"
+            elif url.endswith(".css"):
+                mime_type = "text/css"
+            elif url.endswith("/"): # return index.html(as per requirement)
+                url += "index.html"
+                mime_type = "text/html"
+            else:
+                self._404()
+
+            try:
+                url = "www" + url
+                with open(url, "r") as f:
+                    res = "HTTP/1.1 200 OK\r\n"+ "Content-type: "+ mime_type + "\r\n" + f.read()
+                    self.request.sendall(res.encode())
+                    return
+            except: # error finding file
+                self._404()
+                return
+                
+              
+    def _404(self):
+        res = "HTTP/1.1 404 Not Found\r\n\r\n<html><body><h1>404: File not found</h3><h1></body>"
+        self.request.sendall(res.encode())
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
